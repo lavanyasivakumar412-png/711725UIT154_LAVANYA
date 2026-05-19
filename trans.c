@@ -3,6 +3,12 @@
 // be placed in the file, and deletes data previously in the file.
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+#define MAX_ACCOUNTS 100
+#define MIN_BALANCE 500.0
+
 // clientData structure definition
 struct clientData
 {
@@ -15,14 +21,27 @@ struct clientData
 // prototypes
 unsigned int enterChoice(void);
 void textFile(FILE *readPtr);
-void updateRecord(FILE *fPtr);
+void listRecords(FILE *readPtr);
+void searchRecord(FILE *fPtr);
+void balanceInquiry(FILE *fPtr);
+void depositRecord(FILE *fPtr);
+void withdrawRecord(FILE *fPtr);
 void newRecord(FILE *fPtr);
 void deleteRecord(FILE *fPtr);
+void accountCount(FILE *readPtr);
+void lowBalanceReport(FILE *readPtr);
+void printHeader(void);
+void printClient(struct clientData client);
+int readClient(FILE *fPtr, unsigned int accountNum, struct clientData *client);
+int writeClient(FILE *fPtr, struct clientData client);
+int isValidAccount(unsigned int accountNum);
+void logTransaction(const char *type, struct clientData client, double amount, double oldBalance);
 
 int main(int argc, char *argv[])
 {
     FILE *cfPtr;         // credit.dat file pointer
     unsigned int choice; // user's choice
+    (void)argc;
 
     // fopen opens the file; exits if file cannot be opened
     if ((cfPtr = fopen("credit.dat", "rb+")) == NULL)
@@ -32,27 +51,40 @@ int main(int argc, char *argv[])
     }
 
     // enable user to specify action
-    while ((choice = enterChoice()) != 5)
+    while ((choice = enterChoice()) != 11)
     {
         switch (choice)
         {
-        // create text file from record file
         case 1:
             textFile(cfPtr);
             break;
-        // update record
         case 2:
-            updateRecord(cfPtr);
+            listRecords(cfPtr);
             break;
-        // create record
         case 3:
+            searchRecord(cfPtr);
+            break;
+        case 4:
+            balanceInquiry(cfPtr);
+            break;
+        case 5:
+            depositRecord(cfPtr);
+            break;
+        case 6:
+            withdrawRecord(cfPtr);
+            break;
+        case 7:
             newRecord(cfPtr);
             break;
-        // delete existing record
-        case 4:
+        case 8:
             deleteRecord(cfPtr);
             break;
-        // display if user does not select valid choice
+        case 9:
+            accountCount(cfPtr);
+            break;
+        case 10:
+            lowBalanceReport(cfPtr);
+            break;
         default:
             puts("Incorrect choice");
             break;
@@ -66,153 +98,399 @@ int main(int argc, char *argv[])
 void textFile(FILE *readPtr)
 {
     FILE *writePtr; // accounts.txt file pointer
-    int result;     // used to test whether fread read any bytes
-    // create clientData with default information
     struct clientData client = {0, "", "", 0.0};
 
-    // fopen opens the file; exits if file cannot be opened
     if ((writePtr = fopen("accounts.txt", "w")) == NULL)
     {
         puts("File could not be opened.");
-    } // end if
-    else
+        return;
+    }
+
+    rewind(readPtr);
+    fprintf(writePtr, "%-6s%-16s%-11s%10s\n", "Acct", "Last Name", "First Name", "Balance");
+
+    while (fread(&client, sizeof(struct clientData), 1, readPtr) == 1)
     {
-        rewind(readPtr); // sets pointer to beginning of file
-        fprintf(writePtr, "%-6s%-16s%-11s%10s\n", "Acct", "Last Name", "First Name", "Balance");
-
-        // copy all records from random-access file into text file
-        while (!feof(readPtr))
+        if (client.acctNum != 0)
         {
-            result = fread(&client, sizeof(struct clientData), 1, readPtr);
+            fprintf(writePtr, "%-6u%-16s%-11s%10.2f\n", client.acctNum, client.lastName, client.firstName,
+                    client.balance);
+        }
+    }
 
-            // write single record to text file
-            if (result != 0 && client.acctNum != 0)
-            {
-                fprintf(writePtr, "%-6d%-16s%-11s%10.2f\n", client.acctNum, client.lastName, client.firstName,
-                        client.balance);
-            } // end if
-        }     // end while
-
-        fclose(writePtr); // fclose closes the file
-    }                     // end else
+    fclose(writePtr);
+    puts("accounts.txt created successfully.");
 } // end function textFile
 
-// update balance in record
-void updateRecord(FILE *fPtr)
+// display all account records on screen
+void listRecords(FILE *readPtr)
 {
-    unsigned int account; // account number
-    double transaction;   // transaction amount
-    // create clientData with no information
+    int found = 0;
     struct clientData client = {0, "", "", 0.0};
 
-    // obtain number of account to update
-    printf("%s", "Enter account to update ( 1 - 100 ): ");
-    scanf("%d", &account);
+    rewind(readPtr);
+    printHeader();
 
-    // move file pointer to correct record in file
-    fseek(fPtr, (account - 1) * sizeof(struct clientData), SEEK_SET);
-    // read record from file
-    fread(&client, sizeof(struct clientData), 1, fPtr);
-    // display error if account does not exist
-    if (client.acctNum == 0)
+    while (fread(&client, sizeof(struct clientData), 1, readPtr) == 1)
     {
-        printf("Account #%d has no information.\n", account);
+        if (client.acctNum != 0)
+        {
+            printClient(client);
+            found = 1;
+        }
     }
-    else
-    { // update record
-        printf("%-6d%-16s%-11s%10.2f\n\n", client.acctNum, client.lastName, client.firstName, client.balance);
 
-        // request transaction amount from user
-        printf("%s", "Enter charge ( + ) or payment ( - ): ");
-        scanf("%lf", &transaction);
-        client.balance += transaction; // update record balance
+    if (!found)
+    {
+        puts("No active accounts found.");
+    }
+} // end function listRecords
 
-        printf("%-6d%-16s%-11s%10.2f\n", client.acctNum, client.lastName, client.firstName, client.balance);
+// search and display one account
+void searchRecord(FILE *fPtr)
+{
+    unsigned int accountNum;
+    struct clientData client = {0, "", "", 0.0};
 
-        // move file pointer to correct record in file
-        // move back by 1 record length
-        fseek(fPtr, -sizeof(struct clientData), SEEK_CUR);
-        // write updated record over old record in file
-        fwrite(&client, sizeof(struct clientData), 1, fPtr);
-    } // end else
-} // end function updateRecord
+    printf("%s", "Enter account number to search ( 1 - 100 ): ");
+    if (scanf("%u", &accountNum) != 1 || !isValidAccount(accountNum))
+    {
+        puts("Invalid account number.");
+        return;
+    }
+
+    if (!readClient(fPtr, accountNum, &client) || client.acctNum == 0)
+    {
+        printf("Account #%u does not exist.\n", accountNum);
+        return;
+    }
+
+    printHeader();
+    printClient(client);
+} // end function searchRecord
+
+// display current balance for one account
+void balanceInquiry(FILE *fPtr)
+{
+    unsigned int accountNum;
+    struct clientData client = {0, "", "", 0.0};
+
+    printf("%s", "Enter account number for balance enquiry ( 1 - 100 ): ");
+    if (scanf("%u", &accountNum) != 1 || !isValidAccount(accountNum))
+    {
+        puts("Invalid account number.");
+        return;
+    }
+
+    if (!readClient(fPtr, accountNum, &client) || client.acctNum == 0)
+    {
+        printf("Account #%u does not exist.\n", accountNum);
+        return;
+    }
+
+    printf("Current balance for account #%u is %.2f\n", client.acctNum, client.balance);
+} // end function balanceInquiry
+
+// add money to an account
+void depositRecord(FILE *fPtr)
+{
+    unsigned int accountNum;
+    double amount;
+    double oldBalance;
+    struct clientData client = {0, "", "", 0.0};
+
+    printf("%s", "Enter account number to deposit into ( 1 - 100 ): ");
+    if (scanf("%u", &accountNum) != 1 || !isValidAccount(accountNum))
+    {
+        puts("Invalid account number.");
+        return;
+    }
+
+    if (!readClient(fPtr, accountNum, &client) || client.acctNum == 0)
+    {
+        printf("Account #%u does not exist.\n", accountNum);
+        return;
+    }
+
+    printf("%s", "Enter deposit amount: ");
+    if (scanf("%lf", &amount) != 1 || amount <= 0)
+    {
+        puts("Deposit amount must be greater than zero.");
+        return;
+    }
+
+    oldBalance = client.balance;
+    client.balance += amount;
+
+    if (writeClient(fPtr, client))
+    {
+        logTransaction("DEPOSIT", client, amount, oldBalance);
+        printf("Deposit successful. New balance: %.2f\n", client.balance);
+    }
+} // end function depositRecord
+
+// remove money from an account
+void withdrawRecord(FILE *fPtr)
+{
+    unsigned int accountNum;
+    double amount;
+    double oldBalance;
+    struct clientData client = {0, "", "", 0.0};
+
+    printf("%s", "Enter account number to withdraw from ( 1 - 100 ): ");
+    if (scanf("%u", &accountNum) != 1 || !isValidAccount(accountNum))
+    {
+        puts("Invalid account number.");
+        return;
+    }
+
+    if (!readClient(fPtr, accountNum, &client) || client.acctNum == 0)
+    {
+        printf("Account #%u does not exist.\n", accountNum);
+        return;
+    }
+
+    printf("%s", "Enter withdrawal amount: ");
+    if (scanf("%lf", &amount) != 1 || amount <= 0)
+    {
+        puts("Withdrawal amount must be greater than zero.");
+        return;
+    }
+
+    if (amount > client.balance)
+    {
+        puts("Insufficient balance. Withdrawal cancelled.");
+        return;
+    }
+
+    oldBalance = client.balance;
+    client.balance -= amount;
+
+    if (writeClient(fPtr, client))
+    {
+        logTransaction("WITHDRAW", client, amount, oldBalance);
+        printf("Withdrawal successful. New balance: %.2f\n", client.balance);
+        if (client.balance < MIN_BALANCE)
+        {
+            printf("Warning: balance is below minimum balance %.2f\n", MIN_BALANCE);
+        }
+    }
+} // end function withdrawRecord
 
 // delete an existing record
 void deleteRecord(FILE *fPtr)
 {
-    struct clientData client;                       // stores record read from file
-    struct clientData blankClient = {0, "", "", 0}; // blank client
-    unsigned int accountNum;                        // account number
+    struct clientData client = {0, "", "", 0.0};
+    struct clientData blankClient = {0, "", "", 0};
+    unsigned int accountNum;
 
-    // obtain number of account to delete
     printf("%s", "Enter account number to delete ( 1 - 100 ): ");
-    scanf("%d", &accountNum);
-
-    // move file pointer to correct record in file
-    fseek(fPtr, (accountNum - 1) * sizeof(struct clientData), SEEK_SET);
-    // read record from file
-    fread(&client, sizeof(struct clientData), 1, fPtr);
-    // display error if record does not exist
-    if (client.acctNum == 0)
+    if (scanf("%u", &accountNum) != 1 || !isValidAccount(accountNum))
     {
-        printf("Account %d does not exist.\n", accountNum);
-    } // end if
-    else
-    { // delete record
-        // move file pointer to correct record in file
-        fseek(fPtr, (accountNum - 1) * sizeof(struct clientData), SEEK_SET);
-        // replace existing record with blank record
-        fwrite(&blankClient, sizeof(struct clientData), 1, fPtr);
-    } // end else
+        puts("Invalid account number.");
+        return;
+    }
+
+    if (!readClient(fPtr, accountNum, &client) || client.acctNum == 0)
+    {
+        printf("Account %u does not exist.\n", accountNum);
+        return;
+    }
+
+    blankClient.acctNum = accountNum;
+    if (writeClient(fPtr, blankClient))
+    {
+        logTransaction("DELETE", client, 0.0, client.balance);
+        printf("Account #%u deleted successfully.\n", accountNum);
+    }
 } // end function deleteRecord
 
 // create and insert record
 void newRecord(FILE *fPtr)
 {
-    // create clientData with default information
     struct clientData client = {0, "", "", 0.0};
-    unsigned int accountNum; // account number
+    unsigned int accountNum;
 
-    // obtain number of account to create
     printf("%s", "Enter new account number ( 1 - 100 ): ");
-    scanf("%d", &accountNum);
+    if (scanf("%u", &accountNum) != 1 || !isValidAccount(accountNum))
+    {
+        puts("Invalid account number.");
+        return;
+    }
 
-    // move file pointer to correct record in file
-    fseek(fPtr, (accountNum - 1) * sizeof(struct clientData), SEEK_SET);
-    // read record from file
-    fread(&client, sizeof(struct clientData), 1, fPtr);
-    // display error if account already exists
+    if (!readClient(fPtr, accountNum, &client))
+    {
+        puts("Unable to read account record.");
+        return;
+    }
+
     if (client.acctNum != 0)
     {
-        printf("Account #%d already contains information.\n", client.acctNum);
-    } // end if
-    else
-    { // create record
-        // user enters last name, first name and balance
-        printf("%s", "Enter lastname, firstname, balance\n? ");
-        scanf("%14s%9s%lf", client.lastName, client.firstName, &client.balance);
+        printf("Account #%u already contains information.\n", client.acctNum);
+        return;
+    }
 
-        client.acctNum = accountNum;
-        // move file pointer to correct record in file
-        fseek(fPtr, (client.acctNum - 1) * sizeof(struct clientData), SEEK_SET);
-        // insert record in file
-        fwrite(&client, sizeof(struct clientData), 1, fPtr);
-    } // end else
+    printf("%s", "Enter lastname, firstname, opening balance\n? ");
+    if (scanf("%14s%9s%lf", client.lastName, client.firstName, &client.balance) != 3 || client.balance < 0)
+    {
+        puts("Invalid account information.");
+        return;
+    }
+
+    client.acctNum = accountNum;
+    if (writeClient(fPtr, client))
+    {
+        logTransaction("CREATE", client, client.balance, 0.0);
+        printf("Account #%u created successfully.\n", accountNum);
+    }
 } // end function newRecord
+
+// display the total number of active accounts
+void accountCount(FILE *readPtr)
+{
+    unsigned int count = 0;
+    struct clientData client = {0, "", "", 0.0};
+
+    rewind(readPtr);
+    while (fread(&client, sizeof(struct clientData), 1, readPtr) == 1)
+    {
+        if (client.acctNum != 0)
+        {
+            count++;
+        }
+    }
+
+    printf("Total active accounts: %u\n", count);
+} // end function accountCount
+
+// display accounts below minimum balance
+void lowBalanceReport(FILE *readPtr)
+{
+    int found = 0;
+    struct clientData client = {0, "", "", 0.0};
+
+    rewind(readPtr);
+    printf("Accounts below minimum balance %.2f:\n", MIN_BALANCE);
+    printHeader();
+
+    while (fread(&client, sizeof(struct clientData), 1, readPtr) == 1)
+    {
+        if (client.acctNum != 0 && client.balance < MIN_BALANCE)
+        {
+            printClient(client);
+            found = 1;
+        }
+    }
+
+    if (!found)
+    {
+        puts("No accounts are below the minimum balance.");
+    }
+} // end function lowBalanceReport
 
 // enable user to input menu choice
 unsigned int enterChoice(void)
 {
-    unsigned int menuChoice; // variable to store user's choice
-    // display available options
-    printf("%s", "\nEnter your choice\n"
-                 "1 - store a formatted text file of accounts called\n"
-                 "    \"accounts.txt\" for printing\n"
-                 "2 - update an account\n"
-                 "3 - add a new account\n"
-                 "4 - delete an account\n"
-                 "5 - end program\n? ");
+    unsigned int menuChoice;
 
-    scanf("%u", &menuChoice); // receive choice from user
+    printf("%s", "\nEnter your choice\n"
+                 "1  - create accounts.txt file\n"
+                 "2  - list all accounts\n"
+                 "3  - search account\n"
+                 "4  - balance enquiry\n"
+                 "5  - deposit amount\n"
+                 "6  - withdraw amount\n"
+                 "7  - add a new account\n"
+                 "8  - delete an account\n"
+                 "9  - count active accounts\n"
+                 "10 - show low-balance accounts\n"
+                 "11 - end program\n? ");
+
+    if (scanf("%u", &menuChoice) != 1)
+    {
+        return 0;
+    }
+
     return menuChoice;
 } // end function enterChoice
+
+// display account table heading
+void printHeader(void)
+{
+    printf("%-6s%-16s%-11s%10s\n", "Acct", "Last Name", "First Name", "Balance");
+} // end function printHeader
+
+// display one account
+void printClient(struct clientData client)
+{
+    printf("%-6u%-16s%-11s%10.2f\n", client.acctNum, client.lastName, client.firstName, client.balance);
+} // end function printClient
+
+// read one account record from file
+int readClient(FILE *fPtr, unsigned int accountNum, struct clientData *client)
+{
+    long offset;
+
+    if (!isValidAccount(accountNum))
+    {
+        return 0;
+    }
+
+    offset = (long)(accountNum - 1) * (long)sizeof(struct clientData);
+    fseek(fPtr, offset, SEEK_SET);
+    return fread(client, sizeof(struct clientData), 1, fPtr) == 1;
+} // end function readClient
+
+// write one account record to file
+int writeClient(FILE *fPtr, struct clientData client)
+{
+    long offset;
+
+    if (!isValidAccount(client.acctNum))
+    {
+        puts("Invalid account number.");
+        return 0;
+    }
+
+    offset = (long)(client.acctNum - 1) * (long)sizeof(struct clientData);
+    fseek(fPtr, offset, SEEK_SET);
+    if (fwrite(&client, sizeof(struct clientData), 1, fPtr) != 1)
+    {
+        puts("Unable to write account record.");
+        return 0;
+    }
+
+    fflush(fPtr);
+    return 1;
+} // end function writeClient
+
+// validate account number range
+int isValidAccount(unsigned int accountNum)
+{
+    return accountNum >= 1 && accountNum <= MAX_ACCOUNTS;
+} // end function isValidAccount
+
+// save account activity to a text history file
+void logTransaction(const char *type, struct clientData client, double amount, double oldBalance)
+{
+    FILE *logPtr;
+    time_t now;
+    char timestamp[30];
+
+    logPtr = fopen("transactions.txt", "a");
+    if (logPtr == NULL)
+    {
+        puts("Warning: transaction history could not be opened.");
+        return;
+    }
+
+    now = time(NULL);
+    strncpy(timestamp, ctime(&now), sizeof(timestamp) - 1);
+    timestamp[sizeof(timestamp) - 1] = '\0';
+    timestamp[strcspn(timestamp, "\n")] = '\0';
+
+    fprintf(logPtr, "%s | %-8s | Acct: %-3u | %-14s %-9s | Amount: %10.2f | Old: %10.2f | New: %10.2f\n",
+            timestamp, type, client.acctNum, client.lastName, client.firstName, amount, oldBalance, client.balance);
+
+    fclose(logPtr);
+} // end function logTransaction
