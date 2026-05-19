@@ -1,97 +1,176 @@
-# Transaction Processing System  
-### Mini Project – 24UCS271 Lab
+# Transaction Processing System
 
----
+## Project Description
 
-## Objective
-This mini project focuses on understanding, modifying, and extending a **Transaction Processing System** program. Students are expected to analyze existing code, improve it, and add new functionalities while following good coding practices.
+This project is a C-based bank account transaction processing system. It uses a random-access binary file, `credit.dat`, to store account records and allows the user to create, view, update, and delete account information.
 
----
+The project demonstrates file handling, structures, random-access file processing, input validation, and transaction management in C.
 
-## Reference Code
-Review the given source code before starting the project:
+## Features
 
-🔗 https://replit.com/@ashokb/Unit5Programs#trans.c
+- Create a formatted account report in `accounts.txt`
+- List all active accounts on screen
+- Search account details by account number
+- Check account balance
+- Deposit money into an account
+- Withdraw money from an account
+- Prevent withdrawal when balance is insufficient
+- Add a new account
+- Delete an existing account
+- Count total active accounts
+- Display accounts below minimum balance
+- Save transaction history in `transactions.txt`
+- Validate account numbers and user input
 
----
+## Files Included
 
-## Tasks to be Performed
+| File Name | Description |
+|---|---|
+| `trans.c` | Main C source code |
+| `credit.dat` | Binary random-access account data file |
+| `accounts.txt` | Generated text report of accounts |
+| `transactions.txt` | Transaction history log |
+| `README.md` | Project documentation |
 
-1. Compile and run the given executable code.
-2. Perform your own testing of the program.
-3. Add a new account detail and regenerate the `accounts.txt` file.
-   - Inspect the contents of the file.
-   - Verify whether the output matches your expectations.
-4. Identify and fix any logical errors in the program.
-5. Add new functionality  
-   - Example: Listing all account information.
-6. Optimize the program for better performance and efficiency.
+## Account Structure
 
----
+Each account stores:
 
-## Evaluation Criteria
+- Account number
+- Last name
+- First name
+- Balance
 
-### 1. General (25 Points)
-| Activity | Points | Remarks |
-|--------|--------|--------|
-| Self-effort | 5 | Student’s own assessment of hours spent (no copying or external references) |
-| Turnaround Time | 10 | Provide three time slots; earlier demo gets more points |
-| Project Demo | 10 | Demo must be done using repl.it |
+The program supports account numbers from `1` to `100`.
 
----
+## Menu Options
 
-### 2. Comprehension (15 Points)
-| Activity | Points |
-|--------|--------|
-| Domain Knowledge | 5 |
-| Added Functionality (Ideas) | 5 |
-| Code Comprehension | 5 |
+```text
+1  - create accounts.txt file
+2  - list all accounts
+3  - search account
+4  - balance enquiry
+5  - deposit amount
+6  - withdraw amount
+7  - add a new account
+8  - delete an account
+9  - count active accounts
+10 - show low-balance accounts
+11 - end program
+```
 
----
+## How to Compile
 
-### 3. Modification (35 Points)
-| Activity | Points |
-|--------|--------|
-| Code Improvement | 5 |
-| Functional Decomposition | 10 |
-| Refactoring for Memory Usage | 10 |
-| Refactoring for Speed | 10 |
+Open terminal or PowerShell in the project folder and run:
 
----
+```bash
+gcc -Wall -Wextra -std=c11 trans.c -o trans.exe
+```
 
-### 4. Innovation (45 Points)
-| Activity | Points |
-|--------|--------|
-| New Features / User Stories (Faculty specified) | 5 |
-| Requirement to Code Translation | 10 |
-| Added Functionality (Simple – Error Handling) | 10 |
-| Added Functionality (Advanced) | 20 |
+If using Replit or Linux:
 
----
+```bash
+gcc -Wall -Wextra -std=c11 trans.c -o trans
+```
 
-## Total Marks
-**120 Marks**  
-➡ Reduced to **20 Marks** for final evaluation
+## How to Run
 
----
+On Windows:
 
-## Rules for Mini Project Implementation
+```powershell
+.\trans.exe
+```
 
-- Maximum of **2 attempts** will be given for project presentation.
-- If dissatisfied with the first score, a second attempt is allowed.
-- The **best score** out of the two attempts will be considered final.
-- Discussion and clarification among students are allowed.
-- **Copying or borrowing code is strictly prohibited.**
-- Violation of plagiarism rules will result in a **zero (0 / NULL) score**.
+On Replit or Linux:
 
----
+```bash
+./trans
+```
 
-## Additional Reference
-🔗 http://j.mp/transactionUnit5  
-🔗 https://htmlpreview.github.io/?https://github.com/kgisl/makesite/blob/master/content/blog/2021-06-23-unit5-mini-project.md.html
-🔗 https://github.com/24UCS271-MiniProject/miniProjectSourceCode/
+## Sample Testing
 
----
+### List all accounts
 
-**Date:** 31/01/2026  
-**Time:** 06:42
+Choose:
+
+```text
+2
+```
+
+### Search account
+
+Choose:
+
+```text
+3
+```
+
+Then enter an account number, for example:
+
+```text
+1
+```
+
+### Deposit amount
+
+Choose:
+
+```text
+5
+```
+
+Then enter:
+
+```text
+Account number: 1
+Deposit amount: 100
+```
+
+### Withdraw amount
+
+Choose:
+
+```text
+6
+```
+
+Then enter:
+
+```text
+Account number: 1
+Withdrawal amount: 50
+```
+
+### Generate account report
+
+Choose:
+
+```text
+1
+```
+
+This creates or updates `accounts.txt`.
+
+## Error Handling Added
+
+- Invalid account numbers are rejected
+- Account numbers must be between `1` and `100`
+- Deposit and withdrawal amounts must be greater than zero
+- Withdrawal is cancelled if the balance is insufficient
+- Duplicate accounts cannot be created
+- Missing accounts cannot be searched, updated, or deleted
+
+## Transaction History
+
+The program records important actions in `transactions.txt`, including:
+
+- Account creation
+- Deposit
+- Withdrawal
+- Account deletion
+
+Each log entry includes the date and time, account number, transaction type, amount, old balance, and new balance.
+
+## Conclusion
+
+This project improves the basic transaction processing system by adding major banking features, better input validation, report generation, and transaction history. It is suitable for demonstrating C file handling and random-access record processing.
